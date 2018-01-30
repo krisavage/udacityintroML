@@ -171,6 +171,14 @@ features = scaler.fit_transform(features)
 ### you'll need to use Pipelines. For more info:
 ### http://scikit-learn.org/stable/modules/pipeline.html 
 
+### Task 5: Tune your classifier to achieve better than .3 precision and recall 
+### using our testing script. Check the tester.py script in the final project
+### folder for details on the evaluation method, especially the test_classifier
+### function. Because of the small size of the dataset, the script uses
+### stratified shuffle split cross validation. For more info: 
+### http://scikit-learn.org/stable/modules/generated/sklearn.cross_validation.StratifiedShuffleSplit.html
+
+
 # Provided to give you a starting point. Try a variety of classifiers.
 from sklearn.naive_bayes import GaussianNB
 from sklearn.svm import SVC
@@ -179,19 +187,23 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import accuracy_score, precision_score, recall_score
 from sklearn.model_selection import train_test_split, StratifiedShuffleSplit
 from sklearn.grid_search import GridSearchCV
+from sklearn import preprocessing
 from sklearn import linear_model 
 
 features_train, features_test, labels_train, labels_test = train_test_split(
 	features, labels, test_size=0.3, random_state=42)
 
+#====================================== Naive Bayes ===========================================================#
 
-#clf = GaussianNB()
-#clf.fit(features_train, labels_train)
-#pred = clf.predict(features_test)
+# clf = GaussianNB()
+# clf.fit(features_train, labels_train)
+# pred = clf.predict(features_test)
 
-#nb_accuracy = accuracy_score(pred, labels_test)
-#precision = precision_score(pred, labels_test)
-#recall = recall_score(pred, labels_test)
+# nb_accuracy = accuracy_score(pred, labels_test)
+# precision = precision_score(pred, labels_test)
+# recall = recall_score(pred, labels_test)
+
+#====================================== Decision Tree Classifier ===========================================================#
 
 # clf = DecisionTreeClassifier()
 # clf.fit(features_train, labels_train)
@@ -206,6 +218,9 @@ features_train, features_test, labels_train, labels_test = train_test_split(
 # print "\n DTC precision: ", precision
 
 # print "\n DTC recall: ", recall
+
+#====================================== K Nearest Neighbor ===========================================================#
+
 
 # clf = KNeighborsClassifier(n_neighbors = 3, p = 1, weights = "uniform", leaf_size = 1, metric = "minkowski")
 # clf.fit(features_train,labels_train)
@@ -239,22 +254,35 @@ features_train, features_test, labels_train, labels_test = train_test_split(
 # print "\n KNN recall: ", recall
 
 
-clf = 
+
+#====================================== Logistic Regression ===========================================================#
+
+# params = {'tol': [1, 0.1, 0.01, 0.001, 0.0001], 
+#          'C': [0.1, 0.01, 0.001, 0.0001]}
 
 
+# clf = linear_model.LogisticRegression(C = .1, tol = 1)
+# clf.fit(features_train, labels_train)
+# pred = clf.predict(features_test)
 
 
+# search = GridSearchCV(clf, params, scoring = "recall")
+# search.fit(features_train,labels_train)
 
 
+# best_params = search.best_estimator_.get_params()
+# for param_name in params.keys():
+# 	print("%s = %r, " % (param_name, best_params[param_name]))
 
 
+#====================================== Random Forest ===========================================================#
 
-### Task 5: Tune your classifier to achieve better than .3 precision and recall 
-### using our testing script. Check the tester.py script in the final project
-### folder for details on the evaluation method, especially the test_classifier
-### function. Because of the small size of the dataset, the script uses
-### stratified shuffle split cross validation. For more info: 
-### http://scikit-learn.org/stable/modules/generated/sklearn.cross_validation.StratifiedShuffleSplit.html
+from sklearn.ensemble import RandomForestClassifier
+clf = RandomForestClassifier(max_depth = 5, max_features = 'sqrt',n_estimators = 10, random_state = 42)
+clf.fit(features_train,labels_train)
+pred = clf.predict(features_test)
+
+
 
 
 ### Task 6: Dump your classifier, dataset, and features_list so anyone can
