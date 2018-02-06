@@ -8,6 +8,20 @@ sys.path.append("../tools/")
 from feature_format import featureFormat, targetFeatureSplit
 from tester import dump_classifier_and_data
 
+from sklearn.naive_bayes import GaussianNB
+from sklearn.svm import SVC
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import accuracy_score, precision_score, recall_score
+from sklearn.model_selection import train_test_split, StratifiedShuffleSplit
+from sklearn.model_selection import GridSearchCV
+from sklearn.feature_selection import SelectKBest
+from sklearn.pipeline import Pipeline
+from sklearn import preprocessing
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.metrics import classification_report
+from sklearn import linear_model 
+
 ### Task 1: Select what features you'll use.
 ### features_list is a list of strings, each of which is a feature name.
 ### The first feature must be "poi".
@@ -70,19 +84,20 @@ for f in nan_values:
 	print f, " ", nan_values[f]
 
 
-
-### Task 2: Remove outliers
+#============================= search for outliers in terms of salary ===================================================
 #code to show that 'TOTAL' was an outlier
 #for employee in data_dict:
 #	if(data_dict[employee]["salary"] != "NaN") and (data_dict[employee]["bonus"] != "NaN"):
 #		if float(data_dict[employee]["salary"]) > 1000000 and float(data_dict[employee]["bonus"]) > 5000000:
 #			print employee
+#========================================================================================================================
 
-
-
+### Task 2: Remove outliers
 data_dict.pop('TOTAL', 0)
 data_dict.pop('THE TRAVEL AGENCY IN THE PARK', 0) 
 data_dict.pop('LOCKHART EUGENE E', 0)
+
+
 
 
 #remove all NaN values before proceeding
@@ -144,32 +159,38 @@ newfeaturelist = features_list + ["ratio_frompoi", "ratio_topoi"]
 data = featureFormat(my_dataset, newfeaturelist, sort_keys = True)
 labels, features = targetFeatureSplit(data)
 
-
-from sklearn.feature_selection import SelectKBest
-
-selection = SelectKBest(k=10)
-selection.fit(features, labels)
-scores = selection.scores_
+# selection = SelectKBest(k=10)
+# selection.fit(features, labels)
+# scores = selection.scores_
 
 
-#zip features and scores into a table
-featurescore = zip(newfeaturelist[1:], scores)
+#================= evaluate which features are most important and print out their score in and ordered format==========================
+# #zip features and scores into a table
+# featurescore = zip(newfeaturelist[1:], scores)
 
-#order them and then print them out
-ordered_featurescore = sorted(featurescore, key = lambda x: x[1], reverse = True)
-for feature, score in ordered_featurescore:
-	print feature, score
+# #order them and then print them out
+# ordered_featurescore = sorted(featurescore, key = lambda x: x[1], reverse = True)
+# for feature, score in ordered_featurescore:
+# 	print feature, score
+#======================================================================================================================================
+
 
 
 from sklearn.preprocessing import MinMaxScaler
 scaler = MinMaxScaler()
 features = scaler.fit_transform(features)
 
+
+
 ### Task 4: Try a varity of classifiers
 ### Please name your classifier clf for easy export below.
 ### Note that if you want to do PCA or other multi-stage operations,
 ### you'll need to use Pipelines. For more info:
 ### http://scikit-learn.org/stable/modules/pipeline.html 
+
+
+features_train, features_test, labels_train, labels_test = \
+train_test_split(features, labels, test_size=0.3, random_state=42)
 
 ### Task 5: Tune your classifier to achieve better than .3 precision and recall 
 ### using our testing script. Check the tester.py script in the final project
@@ -178,20 +199,49 @@ features = scaler.fit_transform(features)
 ### stratified shuffle split cross validation. For more info: 
 ### http://scikit-learn.org/stable/modules/generated/sklearn.cross_validation.StratifiedShuffleSplit.html
 
+selk = SelectKBest()
+nb = GaussianNB()
+svc = SVC()
+dtc = DecisionTreeClassifier()
+knn = KNeighborsClassifier()
+rf = RandomForestClassifier()
 
+params = { "naive bayes": nb, "SVC": svc, "decision tree classifier:" : dtc, 
+"K Nearest Neighbor:": knn, "Random Forest: ": rf}
+
+def optimizeclf(clf, params, n_splits):
+
+	steps = [("feature_selection", selk), ("clf", clf)]
+	pipeline = Pipeline(steps)
+
+	features_train, features_test, labels_train, labels_test = \
+	train_test_split(features, labels, test_size=0.3, random_state=42)
+
+	sss = StratifiedShuffleSplit(n_splits=n_splits, test_size=0.3, random_state=42)
+
+	gs = GridSearchCV(pipeline, params, scoring='f1',
+	                      cv=sss, refit='f1')
+	                
+	gs.fit(features_train, labels_train)
+	pred = gs.predict(features_test)
+
+	accuracy = accuracy_score(pred, labels_test)
+
+	report  = classification_report(labels_test, pred)
+	best_params = gs.best_params_
+	best_score = gs.best_score_
+
+
+
+	print "report: ", report
+	print "accuracy: ", accuracy
+	print "Best parameters: ", best_params 
+	print "Best f-1 Score: ", best_score
+
+	return gs.best_estimator_
 # Provided to give you a starting point. Try a variety of classifiers.
-from sklearn.naive_bayes import GaussianNB
-from sklearn.svm import SVC
-from sklearn.tree import DecisionTreeClassifier
-from sklearn.neighbors import KNeighborsClassifier
-from sklearn.metrics import accuracy_score, precision_score, recall_score
-from sklearn.model_selection import train_test_split, StratifiedShuffleSplit
-from sklearn.grid_search import GridSearchCV
-from sklearn import preprocessing
-from sklearn import linear_model 
-
-features_train, features_test, labels_train, labels_test = train_test_split(
-	features, labels, test_size=0.3, random_state=42)
+#features_train, features_test, labels_train, labels_test = train_test_split(
+#	features, labels, test_size=0.3, random_state=42)
 
 #====================================== Naive Bayes ===========================================================#
 
@@ -199,13 +249,36 @@ features_train, features_test, labels_train, labels_test = train_test_split(
 # clf.fit(features_train, labels_train)
 # pred = clf.predict(features_test)
 
-# nb_accuracy = accuracy_score(pred, labels_test)
+for name, clf in params.items():
+	print("======================================================================")
+	print name
+
+	if clf == nb:
+		value = {'feature_selection__k':list(range(1, 10))}
+	elif clf == svc:
+		value = [{'feature_selection__k':list(range(1, 10)),'clf__C':[.01, .001]}]
+	elif clf == dtc:
+		value = [{'feature_selection__k':list(range(1, 10)),
+                      'clf__criterion':['gini', 'entropy']}]
+	elif clf == knn:
+		value = [{'feature_selection__k':list(range(1, 10)),
+                      'clf__n_neighbors':[3, 5, 7]}]
+	elif clf == rf:	
+		value = [{'feature_selection__k':list(range(1, 10)),
+                      'clf__n_estimators':[25, 50, 100,]}]
+
+	optimizeclf(clf, value, 10)
+	print("==========================================================================\n")
+
+#clf = DecisionTreeClassifier()
+
+#nb_accuracy = accuracy_score(pred, labels_test)
 # precision = precision_score(pred, labels_test)
 # recall = recall_score(pred, labels_test)
 
 #====================================== Decision Tree Classifier ===========================================================#
 
-# clf = DecisionTreeClassifier()
+clf = DecisionTreeClassifier(max_depth = 6, max_features = 4, random_state = 42, min_samples_split = 5)
 # clf.fit(features_train, labels_train)
 # pred = clf.predict(features_test)
 
@@ -219,10 +292,10 @@ features_train, features_test, labels_train, labels_test = train_test_split(
 
 # print "\n DTC recall: ", recall
 
-#====================================== K Nearest Neighbor ===========================================================#
+# #====================================== K Nearest Neighbor ===========================================================#
 
 
-# clf = KNeighborsClassifier(n_neighbors = 3, p = 1, weights = "uniform", leaf_size = 1, metric = "minkowski")
+# clf = KNeighborsClassifier(n_neighbors = 3, p = 2, weights = "uniform", leaf_size = 1, metric = "minkowski")
 # clf.fit(features_train,labels_train)
 
 
@@ -232,7 +305,7 @@ features_train, features_test, labels_train, labels_test = train_test_split(
 # "leaf_size" : [1,5,10,15,20,25,30]}
  
 
-# search = GridSearchCV(clf, params, cv = sss, scoring = "recall")
+# search = GridSearchCV(clf, params, scoring = "f1")
 # search.fit(features_train,labels_train)
 
 
@@ -255,7 +328,7 @@ features_train, features_test, labels_train, labels_test = train_test_split(
 
 
 
-#====================================== Logistic Regression ===========================================================#
+# #====================================== Logistic Regression ===========================================================#
 
 # params = {'tol': [1, 0.1, 0.01, 0.001, 0.0001], 
 #          'C': [0.1, 0.01, 0.001, 0.0001]}
@@ -266,7 +339,29 @@ features_train, features_test, labels_train, labels_test = train_test_split(
 # pred = clf.predict(features_test)
 
 
-# search = GridSearchCV(clf, params, scoring = "recall")
+# # search = GridSearchCV(clf, params, scoring = "f1")
+# # search.fit(features_train,labels_train)
+
+
+# # best_params = search.best_estimator_.get_params()
+# # for param_name in params.keys():
+# # 	print("%s = %r, " % (param_name, best_params[param_name]))
+
+
+# #====================================== Random Forest ===========================================================#
+
+
+
+# clf = RandomForestClassifier(max_depth = 6, max_features = 4, n_estimators = 7, min_samples_split = 4, n_jobs = 1, random_state = 42)
+# clf.fit(features_train,labels_train)
+# pred = clf.predict(features_test)
+
+# params = { "n_estimators":[1,2,3,4,5,6,7,8,9,10], #"max_depth": [1,2,3,4,5, "sqrt", "auto", "log2"] 
+# 	"min_samples_split": [1.0,2,3,4,4], "n_jobs":[1,2,3,4]
+# 	} 
+	
+
+# search = GridSearchCV(clf, params, scoring = "f1")
 # search.fit(features_train,labels_train)
 
 
@@ -275,12 +370,6 @@ features_train, features_test, labels_train, labels_test = train_test_split(
 # 	print("%s = %r, " % (param_name, best_params[param_name]))
 
 
-#====================================== Random Forest ===========================================================#
-
-from sklearn.ensemble import RandomForestClassifier
-clf = RandomForestClassifier(max_depth = 5, max_features = 'sqrt',n_estimators = 10, random_state = 42)
-clf.fit(features_train,labels_train)
-pred = clf.predict(features_test)
 
 
 
